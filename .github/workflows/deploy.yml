@@ -1,6 +1,5 @@
 name: AWS Infrastructure Deployment
 
-# El script se ejecutará de forma automática únicamente cuando se haga un push o merge a la rama main
 on:
   push:
     branches:
@@ -12,51 +11,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Clonar el código del repositorio en el servidor de GitHub Actions
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Configurar las credenciales de AWS usando los Secrets del repositorio
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Cambia la región si tu profesor te asignó una diferente
+          aws-region: us-east-1
 
-      # 3. Paso 1: Desplegar la Capa de Seguridad (Grupos de Seguridad)
+      # Stack 1: Seguridad
       - name: Deploy Security Stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: SecurityGroups-Stack
           template: templates/security.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: "VpcId=vpc-0123456789abcdef0,StudentPrefix=TuNombre-TuApellido"
+          parameter-overrides: "StudentPrefix=Kevin-Arley"
 
-      # 4. Paso 2: Desplegar la Instancia EC2 Estática con su Elastic IP
+      # Stack 2: EC2 Estática
       - name: Deploy EC2 Static Stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: EC2Static-Stack
           template: templates/ec2.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: "SubnetId=subnet-abc12345,KeyName=TuLlavePem,StudentPrefix=TuNombre-TuApellido"
+          parameter-overrides: "StudentPrefix=Kevin-Arley"
 
-      # 5. Paso 3: Desplegar la infraestructura de Alta Disponibilidad (ALB, ASG y Warm Pool)
+      # Stack 3: Alta Disponibilidad (ALB y ASG)
       - name: Deploy ALB & ASG Stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: ALB-ASG-Stack
           template: templates/alb-asg.yml
           no-fail-on-empty-changeset: "1"
-          # CORRECCIÓN AQUÍ: Usamos comillas simples externas para que la coma escape correctamente en CloudFormation
-          parameter-overrides: 'VpcId=vpc-0123456789abcdef0,Subnets=subnet-abc12345\,subnet-def67890,StudentPrefix=TuNombre-TuApellido'
+          parameter-overrides: "StudentPrefix=Kevin-Arley"
 
-      # 6. Paso 4: Desplegar las políticas de Automatización (Acciones programadas y versión 2)
+      # Stack 4: Automatización
       - name: Deploy Automation Stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: Automation-Stack
           template: templates/automation.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: "StudentPrefix=TuNombre-TuApellido"
+          parameter-overrides: "StudentPrefix=Kevin-Arley"

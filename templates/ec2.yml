@@ -1,55 +1,36 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Archivo 2 - Instancia EC2 Estática con Apache y Elastic IP'
+Description: 'Archivo 2 - Instancia EC2 Estática Automática'
 
 Parameters:
-  SubnetId:
-    Type: AWS::EC2::Subnet::Id
-    Description: Selecciona una de tus subredes públicas automáticas.
-  
   LatestAmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64'
-    Description: Toma en automático la última versión de Amazon Linux 2023 sin que busques el ID.
-
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: Selecciona tu llave .pem para el acceso SSH.
 
   StudentPrefix:
     Type: String
-    Default: TuNombre-TuApellido # CAMBIA ESTO por tu nombre real (igual al anterior stack)
-    Description: Prefijo para mantener la nomenclatura.
+    Default: Kevin-Arley
 
 Resources:
-  # 1. Creación de la Instancia EC2
   StaticEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro # Tipo de instancia económico apto para la capa gratuita
+      InstanceType: t2.micro
       ImageId: !Ref LatestAmiId
-      SubnetId: !Ref SubnetId
-      KeyName: !Ref KeyName
-      # Importamos el Grupo de Seguridad del Stack 1 EN AUTOMÁTICO usando Fn::ImportValue
       SecurityGroupIds:
         - !ImportValue 
           Name: !Sub "${StudentPrefix}-EC2SecurityGroupId"
-      # Bloque UserData: Script en Bash que se ejecuta automáticamente al iniciar la máquina
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # Actualizar el sistema e instalar Apache (httpd)
           dnf update -y
-          dnf install -httpd -y
-          # Iniciar el servicio y habilitarlo para que arranque con el sistema
+          dnf install httpd -y
           systemctl start httpd
           systemctl enable httpd
-          # Crear la página web de prueba personalizada para el examen
           echo "<h1>Examen Final Cloud Computing - Servidor Estatico de ${StudentPrefix}</h1>" > /var/www/html/index.html
       Tags:
         - Key: Name
-          Value: !Sub "EC2-${StudentPrefix}" # Cumple la nomenclatura exacta exigida por el profe
+          Value: !Sub "EC2-${StudentPrefix}"
 
-  # 2. Creación de la Elastic IP (IP estática)
   MyElasticIP:
     Type: AWS::EC2::EIP
     Properties:
@@ -58,7 +39,6 @@ Resources:
         - Key: Name
           Value: !Sub "EIP-${StudentPrefix}"
 
-  # 3. Asociación de la Elastic IP con la Instancia EC2
   IPAssociation:
     Type: AWS::EC2::EIPAssociation
     Properties:
@@ -66,10 +46,5 @@ Resources:
       InstanceId: !Ref StaticEC2Instance
 
 Outputs:
-  InstanceId:
-    Description: ID de la instancia EC2 creada
-    Value: !Ref StaticEC2Instance
-
   PublicIP:
-    Description: IP Estática Pública para revisar en el navegador
     Value: !Ref MyElasticIP
