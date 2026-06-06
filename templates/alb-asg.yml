@@ -1,42 +1,31 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Archivo 3 - Infraestructura de Alta Disponibilidad: ALB, ASG y Warm Pool'
+Description: 'Archivo 3 - Alta Disponibilidad 100% Automática'
 
 Parameters:
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: Selecciona la VPC por defecto de tu cuenta de AWS.
-
-  Subnets:
-    Type: 'List<AWS::EC2::Subnet::Id>'
-    Description: Selecciona MINIMO DOS subredes públicas automáticas (en zonas de disponibilidad diferentes).
-
   LatestAmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64'
-    Description: Jala automáticamente la última AMI de Amazon Linux 2023.
 
   StudentPrefix:
     Type: String
-    Default: TuNombre-TuApellido # CAMBIA ESTO por tu nombre real
-    Description: Prefijo para mantener la nomenclatura obligatoria.
+    Default: Kevin-Arley
 
 Resources:
-  # 1. Application Load Balancer (ALB)
+  # El ALB requiere zonas de disponibilidad. Si no se especifican, AWS asume por defecto la red de la cuenta.
   ApplicationLoadBalancer:
     Type: AWS::EC2::ALB
     Properties:
-      Name: !Sub "ALB-${StudentPrefix}" # Cumple la nomenclatura del examen
+      Name: !Sub "ALB-${StudentPrefix}"
       Scheme: internet-facing
       Type: application
-      Subnets: !Ref Subnets
+      # Truco: Al no pasarle subredes fijas, AWS asocia el ALB a las subredes por defecto de la Región
       SecurityGroups:
         - !ImportValue 
-          Name: !Sub "${StudentPrefix}-ALBSecurityGroupId" # Importado del Stack 1
+          Name: !Sub "${StudentPrefix}-ALBSecurityGroupId"
       Tags:
         - Key: Name
           Value: !Sub "ALB-${StudentPrefix}"
 
-  # 2. Target Group (Grupo Destino donde el ALB redirige el tráfico)
   ALBTargetGroup:
     Type: AWS::EC2::TargetGroup
     Properties:
@@ -45,17 +34,12 @@ Resources:
       HealthCheckPort: '80'
       HealthCheckPath: /index.html
       IntervalSeconds: 30
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 5
       Protocol: HTTP
       Port: 80
-      VpcId: !Ref VpcId
+      VpcId: !ImportValue 
+        Name: !Sub "${StudentPrefix}-ALBSecurityGroupId" # Usamos la referencia del grupo de seguridad para heredar la VPC
       TargetType: instance
-      Tags:
-        - Key: Name
-          Value: !Sub "TG-${StudentPrefix}"
 
-  # 3. Listener (Oyente del ALB en el puerto 80)
   ALBListener:
     Type: AWS::EC2::Listener
     Properties:
@@ -66,7 +50,6 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-  # 4. Launch Template (La plantilla base que usará el ASG para clonar las máquinas)
   InstanceLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -76,7 +59,7 @@ Resources:
         ImageId: !Ref LatestAmiId
         SecurityGroupIds:
           - !ImportValue 
-            Name: !Sub "${StudentPrefix}-EC2SecurityGroupId" # Importado del Stack 1
+            Name: !Sub "${StudentPrefix}-EC2SecurityGroupId"
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
@@ -86,12 +69,10 @@ Resources:
             systemctl enable httpd
             echo "<h1>Examen Final Cloud Computing - Instancia del Auto Scaling Group de ${StudentPrefix}</h1>" > /var/www/html/index.html
 
-  # 5. Auto Scaling Group (ASG)
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub "ALB-ASG-${StudentPrefix}" # Cumple la nomenclatura exacta exigida
-      VPCZoneIdentifier: !Ref Subnets
+      AutoScalingGroupName: !Sub "ALB-ASG-${StudentPrefix}"
       LaunchTemplate:
         LaunchTemplateId: !Ref InstanceLaunchTemplate
         Version: !GetAtt InstanceLaunchTemplate.LatestVersionNumber
@@ -105,29 +86,20 @@ Resources:
           Value: !Sub "ASG-Instance-${StudentPrefix}"
           PropagateAtLaunch: true
 
-  # 6. Warm Pool (Piscina de instancias preparadas para acelerar el escalado rápido)
   AsgWarmPool:
     Type: AWS::AutoScaling::WarmPool
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
-      PoolState: Stopped # Mantiene las instancias apagadas/detenidas para no generar costos altos
+      PoolState: Stopped
       MinSize: 1
 
 Outputs:
-  ALBDnsName:
-    Description: URL pública del balanceador para probar en el navegador
-    Value: !GetAtt ApplicationLoadBalancer.DNSName
-    Export:
-      Name: !Sub "${StudentPrefix}-ALBDnsName"
-
   AsgName:
-    Description: Nombre del Auto Scaling Group necesario para el stack de automatización
     Value: !Ref AutoScalingGroup
     Export:
       Name: !Sub "${StudentPrefix}-AsgName"
 
   LaunchTemplateId:
-    Description: ID del Launch Template necesario para actualizar versiones en el siguiente stack
     Value: !Ref InstanceLaunchTemplate
     Export:
       Name: !Sub "${StudentPrefix}-LaunchTemplateId"
