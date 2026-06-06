@@ -5,14 +5,24 @@ Parameters:
   StudentPrefix:
     Type: String
     Default: Kevin-Arley
-    Description: Prefijo para cumplir con la nomenclatura del examen.
 
 Resources:
+  # Esto busca la VPC por defecto de tu compañero en automático directamente en AWS
+  DefaultVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Sub "Security Group para el ALB de ${StudentPrefix}"
-      # EL TRUCO AUTOMÁTICO: Si no se define VpcId, AWS usa la VPC por defecto de la cuenta sola.
+      VpcId: !Ref DefaultVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "SecurityGroups-${StudentPrefix}-ALB"
@@ -21,6 +31,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Sub "Security Group para servidores EC2 de ${StudentPrefix}"
+      VpcId: !Ref DefaultVpc
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -44,3 +55,8 @@ Outputs:
     Value: !Ref EC2SecurityGroup
     Export:
       Name: !Sub "${StudentPrefix}-EC2SecurityGroupId"
+
+  ExportVpcId:
+    Value: !Ref DefaultVpc
+    Export:
+      Name: !Sub "${StudentPrefix}-VpcId"
