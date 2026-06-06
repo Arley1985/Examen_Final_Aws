@@ -1,0 +1,51 @@
+name: AWS Infrastructure Destruction
+
+# Permite que el flujo se ejecute ÚNICAMENTE de forma manual desde la interfaz de GitHub Actions
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    name: Destroy Stacks from AWS
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Clonar el código del repositorio
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Configurar las credenciales de AWS usando los Secrets del repositorio
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # Asegúrate de que sea la misma región del deploy
+
+      # 3. Paso 1: Destruir la Automatización (Versión 2 y Acciones Programadas)
+      - name: Destroy Automation Stack
+        run: |
+          aws cloudformation delete-stack --stack-name Automation-Stack
+          echo "Esperando a que se elimine el Stack de Automatización..."
+          aws cloudformation wait stack-delete-complete --stack-name Automation-Stack
+
+      # 4. Paso 2: Destruir la Alta Disponibilidad (ALB, ASG y Warm Pool)
+      - name: Destroy ALB & ASG Stack
+        run: |
+          aws cloudformation delete-stack --stack-name ALB-ASG-Stack
+          echo "Esperando a que se elimine el Stack de ALB y ASG (Esto puede demorar unos minutos)..."
+          aws cloudformation wait stack-delete-complete --stack-name ALB-ASG-Stack
+
+      # 5. Paso 3: Destruir la Instancia EC2 Estática y su Elastic IP
+      - name: Destroy EC2 Static Stack
+        run: |
+          aws cloudformation delete-stack --stack-name EC2Static-Stack
+          echo "Esperando a que se elimine el Stack de la EC2 Estática..."
+          aws cloudformation wait stack-delete-complete --stack-name EC2Static-Stack
+
+      # 6. Paso 4: Destruir la Capa de Seguridad (Grupos de Seguridad)
+      - name: Destroy Security Stack
+        run: |
+          aws cloudformation delete-stack --stack-name SecurityGroups-Stack
+          echo "Esperando a que se elimine el Stack de Seguridad..."
+          aws cloudformation wait stack-delete-complete --stack-name SecurityGroups-Stack
