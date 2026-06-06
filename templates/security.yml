@@ -12,12 +12,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Sub "Security Group para el ALB de ${StudentPrefix}"
-      VpcId: !Ref "AWS::NoValue" 
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
+      # EL TRUCO AUTOMÁTICO: Si no se define VpcId, AWS usa la VPC por defecto de la cuenta sola.
       Tags:
         - Key: Name
           Value: !Sub "SecurityGroups-${StudentPrefix}-ALB"
@@ -26,7 +21,6 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Sub "Security Group para servidores EC2 de ${StudentPrefix}"
-      VpcId: !Ref "AWS::NoValue"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
