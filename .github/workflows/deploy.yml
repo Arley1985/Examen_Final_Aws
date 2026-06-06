@@ -1,58 +1,54 @@
-name: AWS Infrastructure Deployment
+name: Deploy Infrastructures
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   deploy:
-    name: Deploy Stacks to AWS
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # Stack 1: Seguridad
+      - name: Obtener Red por defecto
+        run: |
+          VPC_ID=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
+          SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --query 'Subnets[0:2].SubnetId' --output text | tr '\t' ',')
+          SUBNET_1=$(echo $SUBNETS | cut -d',' -f1)
+          echo "VPC_ID=$VPC_ID" >> $GITHUB_ENV
+          echo "SUBNETS=$SUBNETS" >> $GITHUB_ENV
+          echo "SUBNET_1=$SUBNET_1" >> $GITHUB_ENV
+
       - name: Deploy Security Stack
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
-        with:
-          name: SecurityGroups-Stack
-          template: templates/security.yml
-          no-fail-on-empty-changeset: "1"
-          parameter-overrides: "StudentPrefix=Kevin-Arley"
+        run: |
+          aws cloudformation deploy \
+          --template-file templates/security.yaml \
+          --stack-name SecurityGroups-Stack \
+          --parameter-overrides VpcId=${{ env.VPC_ID }}
 
-      # Stack 2: EC2 Estática
-      - name: Deploy EC2 Static Stack
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
-        with:
-          name: EC2Static-Stack
-          template: templates/ec2.yml
-          no-fail-on-empty-changeset: "1"
-          parameter-overrides: "StudentPrefix=Kevin-Arley"
+      - name: Deploy EC2 Stack
+        run: |
+          aws cloudformation deploy \
+          --template-file templates/ec2.yaml \
+          --stack-name EC2Static-Stack \
+          --parameter-overrides SubnetId=${{ env.SUBNET_1 }}
 
-      # Stack 3: Alta Disponibilidad (ALB y ASG)
-      - name: Deploy ALB & ASG Stack
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
-        with:
-          name: ALB-ASG-Stack
-          template: templates/alb-asg.yml
-          no-fail-on-empty-changeset: "1"
-          parameter-overrides: "StudentPrefix=Kevin-Arley"
+      - name: Deploy ALB-ASG Stack
+        run: |
+          aws cloudformation deploy \
+          --template-file templates/alb-asg.yaml \
+          --stack-name ALB-ASG-Stack \
+          --parameter-overrides VpcId=${{ env.VPC_ID }} Subnets=${{ env.SUBNETS }}
 
-      # Stack 4: Automatización
       - name: Deploy Automation Stack
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
-        with:
-          name: Automation-Stack
-          template: templates/automation.yml
-          no-fail-on-empty-changeset: "1"
-          parameter-overrides: "StudentPrefix=Kevin-Arley"
+        run: |
+          aws cloudformation deploy \
+          --template-file templates/automation.yaml \
+          --stack-name Automation-Stack
