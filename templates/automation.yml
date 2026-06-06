@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Archivo 4 - Automatización: Acciones Programadas y Nueva Versión del Launch Template'
+
+Parameters:
+  StudentPrefix:
+    Type: String
+    Default: TuNombre-TuApellido # CAMBIA ESTO por tu nombre real
+    Description: Prefijo para mantener la nomenclatura obligatoria.
+
+Resources:
+  # 1. ACTUALIZACIÓN: Creamos la Versión 2 del Launch Template usando el ID exportado del Stack 3
+  LaunchTemplateVersion2:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      # Jala el ID de la plantilla que creamos en el archivo anterior de forma automática
+      LaunchTemplateId: !ImportValue 
+        Name: !Sub "${StudentPrefix}-LaunchTemplateId"
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        # Cambiamos un detalle en el UserData (por ejemplo, el texto) para simular una actualización de la Web v2
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            dnf update -y
+            dnf install httpd -y
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>Examen Final Cloud Computing - ¡Web Version 2.0! Desplegada en el ASG de ${StudentPrefix}</h1>" > /var/www/html/index.html
+
+  # 2. ACCIÓN PROGRAMADA 1: Incremento de mañana (Sube la capacidad a las 08:00 AM)
+  ScheduledActionScaleUpMorn:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !ImportValue 
+        Name: !Sub "${StudentPrefix}-AsgName" # Jala el ASG del Stack 3 automáticamente
+      MinSize: '2'
+      MaxSize: '5'
+      DesiredCapacity: '3'
+      Recurrence: "0 8 * * *" # Expresión Cron: Todos los días a las 8:00 AM
+      TimeZone: "America/Bogota"
+
+  # 3. ACCIÓN PROGRAMADA 2: Incremento de tarde (Sube la capacidad a las 02:00 PM por alto tráfico)
+  ScheduledActionScaleUpAft:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !ImportValue 
+        Name: !Sub "${StudentPrefix}-AsgName"
+      MinSize: '2'
+      MaxSize: '6'
+      DesiredCapacity: '4'
+      Recurrence: "0 14 * * *" # Expresión Cron: Todos los días a las 2:00 PM
+      TimeZone: "America/Bogota"
+
+  # 4. ACCIÓN PROGRAMADA 3: Reducción de noche (Baja la capacidad a las 07:00 PM)
+  ScheduledActionScaleDownEve:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !ImportValue 
+        Name: !Sub "${StudentPrefix}-AsgName"
+      MinSize: '1'
+      MaxSize: '4'
+      DesiredCapacity: '2'
+      Recurrence: "0 19 * * *" # Expresión Cron: Todos los días a las 7:00 PM
+      TimeZone: "America/Bogota"
+
+  # 5. ACCIÓN PROGRAMADA 4: Reducción de madrugada (Baja al mínimo a las 11:00 PM para ahorrar costos)
+  ScheduledActionScaleDownNight:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !ImportValue 
+        Name: !Sub "${StudentPrefix}-AsgName"
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      Recurrence: "0 23 * * *" # Expresión Cron: Todos los días a las 11:00 PM
+      TimeZone: "America/Bogota"
+
+Outputs:
+  AutomationStackStatus:
+    Description: Estado del despliegue de las políticas de automatización
+    Value: !Sub "Automation-${StudentPrefix} completado exitosamente" # Cumple con la nomenclatura exigida
