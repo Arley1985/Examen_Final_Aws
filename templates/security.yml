@@ -1,23 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Archivo 1 - Capa de Seguridad Automatizada'
+Description: Stack 1 - Capa de Seguridad (kevin-arley)
 
 Parameters:
-  StudentPrefix:
-    Type: String
-    Default: Kevin-Arley
+  VpcId:
+    Type: AWS::EC2::VPC::Id
 
 Resources:
-  # Esto busca la VPC por defecto de tu compañero en automático directamente en AWS
-  DefaultVpc:
-    Type: AWS::EC2::VPC
-    Properties:
-      EnableDnsSupport: true
-
-  ALBSecurityGroup:
+  SGPublicEC2:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub "Security Group para el ALB de ${StudentPrefix}"
-      VpcId: !Ref DefaultVpc
+      GroupDescription: SG para EC2 Estatica
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -25,38 +18,46 @@ Resources:
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: !Sub "SecurityGroups-${StudentPrefix}-ALB"
+          Value: sg-ec2-kevin-arley
 
-  EC2SecurityGroup:
+  SGALB:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub "Security Group para servidores EC2 de ${StudentPrefix}"
-      VpcId: !Ref DefaultVpc
+      GroupDescription: SG para el Application Load Balancer
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: !Sub "SecurityGroups-${StudentPrefix}-EC2"
+          Value: sg-alb-kevin-arley
+
+  SGASG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG para instancias del ASG (Trafico desde ALB)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref SGALB
+      Tags:
+        - Key: Name
+          Value: sg-asg-kevin-arley
 
 Outputs:
-  ExportALBSGId:
-    Value: !Ref ALBSecurityGroup
+  SGPublicEC2Export:
+    Value: !Ref SGPublicEC2
     Export:
-      Name: !Sub "${StudentPrefix}-ALBSecurityGroupId"
-
-  ExportEC2SGId:
-    Value: !Ref EC2SecurityGroup
+      Name: SG-EC2-Kevin-Arley
+  SGALBExport:
+    Value: !Ref SGALB
     Export:
-      Name: !Sub "${StudentPrefix}-EC2SecurityGroupId"
-
-  ExportVpcId:
-    Value: !Ref DefaultVpc
+      Name: SG-ALB-Kevin-Arley
+  SGASGExport:
+    Value: !Ref SGASG
     Export:
-      Name: !Sub "${StudentPrefix}-VpcId"
+      Name: SG-ASG-Kevin-Arley
