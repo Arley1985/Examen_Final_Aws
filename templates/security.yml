@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Archivo 1 - Capa de Seguridad (Grupos de Seguridad en la VPC por defecto)'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Selecciona la VPC por defecto de tu cuenta de AWS (¡Se detecta en automático!)
+  
+  StudentPrefix:
+    Type: String
+    Default: TuNombre-TuApellido # CAMBIA ESTO por tu nombre real
+    Description: Prefijo para cumplir con la nomenclatura del examen
+
+Resources:
+  # 1. Grupo de seguridad para el Balanceador de Carga (ALB)
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "Security Group para el ALB de ${StudentPrefix}"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        # Permitir que cualquier persona en internet entre por HTTP (Puerto 80)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "SecurityGroups-${StudentPrefix}-ALB"
+
+  # 2. Grupo de seguridad para los Servidores (EC2)
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "Security Group para servidores EC2 de ${StudentPrefix}"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        # PROTECCIÓN CLOUD: Las EC2 solo aceptan tráfico web si viene REENVIADO por el ALB
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Permitir SSH (Puerto 22) por si necesitas hacer pruebas (abierto para el examen)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "SecurityGroups-${StudentPrefix}-EC2" # Cumple con la nomenclatura exigida
+
+Outputs:
+  # Exportamos los IDs para que los otros archivos independientes los puedan usar "en automático"
+  ExportALBSGId:
+    Description: ID del SG del Balanceador
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: !Sub "${StudentPrefix}-ALBSecurityGroupId"
+
+  ExportEC2SGId:
+    Description: ID del SG de las EC2
+    Value: !Ref EC2SecurityGroup
+    Export:
+      Name: !Sub "${StudentPrefix}-EC2SecurityGroupId"
