@@ -31,8 +31,6 @@ jobs:
           name: SecurityGroups-Stack
           template: templates/security.yml
           no-fail-on-empty-changeset: "1"
-          # Pasamos los parámetros necesarios. 
-          # NOTA: Reemplaza 'vpc-xxxxxx' por tu ID de VPC real o utiliza los parámetros interactivos de AWS si los dejas por defecto
           parameter-overrides: "VpcId=vpc-0123456789abcdef0,StudentPrefix=TuNombre-TuApellido"
 
       # 4. Paso 2: Desplegar la Instancia EC2 Estática con su Elastic IP
@@ -42,7 +40,6 @@ jobs:
           name: EC2Static-Stack
           template: templates/ec2.yml
           no-fail-on-empty-changeset: "1"
-          # Reemplaza 'subnet-xxxxxx' por una subred pública real de tu VPC por defecto y pon el nombre de tu llave .pem
           parameter-overrides: "SubnetId=subnet-abc12345,KeyName=TuLlavePem,StudentPrefix=TuNombre-TuApellido"
 
       # 5. Paso 3: Desplegar la infraestructura de Alta Disponibilidad (ALB, ASG y Warm Pool)
@@ -52,8 +49,8 @@ jobs:
           name: ALB-ASG-Stack
           template: templates/alb-asg.yml
           no-fail-on-empty-changeset: "1"
-          # En Subnets se pasan mínimo dos subredes públicas separadas por coma dentro de la misma VPC
-          parameter-overrides: "VpcId=vpc-0123456789abcdef0,Subnets=subnet-abc12345\,subnet-def67890,StudentPrefix=TuNombre-TuApellido"
+          # CORRECCIÓN AQUÍ: Usamos comillas simples externas para que la coma escape correctamente en CloudFormation
+          parameter-overrides: 'VpcId=vpc-0123456789abcdef0,Subnets=subnet-abc12345\,subnet-def67890,StudentPrefix=TuNombre-TuApellido'
 
       # 6. Paso 4: Desplegar las políticas de Automatización (Acciones programadas y versión 2)
       - name: Deploy Automation Stack
