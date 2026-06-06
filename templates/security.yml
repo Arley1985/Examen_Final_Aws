@@ -7,17 +7,11 @@ Parameters:
     Default: Kevin-Arley
     Description: Prefijo para cumplir con la nomenclatura del examen.
 
-multiaz:
-  # Usamos una función interna para indicarle a AWS que use la VPC por defecto de la cuenta en automático
-  VpcData:
-    Fn::Sub: "{{aws:page:VpcId}}"
-
 Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Sub "Security Group para el ALB de ${StudentPrefix}"
-      # Esto le dice a AWS: "Usa la VPC por defecto de esta cuenta"
       VpcId: !Ref "AWS::NoValue" 
       SecurityGroupIngress:
         - IpProtocol: tcp
