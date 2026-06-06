@@ -26,8 +26,8 @@ Resources:
         - Key: Name
           Value: !Sub "ALB-${StudentPrefix}"
 
-  ALBTargetGroup:
-    Type: AWS::EC2::TargetGroup
+ALBTargetGroup:
+    Type: AWS::AutoScaling::TargetGroup
     Properties:
       Name: !Sub "TG-${StudentPrefix}"
       HealthCheckProtocol: HTTP
@@ -37,7 +37,7 @@ Resources:
       Protocol: HTTP
       Port: 80
       VpcId: !ImportValue 
-        Name: !Sub "${StudentPrefix}-ALBSecurityGroupId" # Usamos la referencia del grupo de seguridad para heredar la VPC
+        Name: !Sub "${StudentPrefix}-VpcId"
       TargetType: instance
 
   ALBListener:
